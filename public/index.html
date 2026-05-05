@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempShare - Super Stable</title>
+    <title>TempShare - Ultimate Edition</title>
     <style>
         :root {
             --primary: #4f46e5;
@@ -122,15 +122,12 @@
         }
         .code-display {
             font-family: monospace;
-            font-size: 28px;
+            font-size: 32px;
             font-weight: bold;
-            letter-spacing: 2px;
+            letter-spacing: 4px;
             margin: 12px 0;
             display: block;
             color: var(--primary);
-            background: #f1f5f9;
-            padding: 10px;
-            border-radius: 8px;
         }
         .loader {
             border: 3px solid #f3f3f3;
@@ -153,21 +150,21 @@
     <div class="container">
         <div class="card">
             <h1>TempShare</h1>
-            <p class="subtitle">Fast, Reliable, Cloud-Powered.</p>
+            <p class="subtitle">Ultimate Proxy Edition (Bypasses All ISP Blocks)</p>
 
             <div class="form-group">
-                <label for="fileInput">Choose File (.py, .pdf, etc.)</label>
+                <label for="fileInput">Choose File (Max 6MB)</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Generate Short Code</button>
+            <button id="uploadBtn" onclick="uploadFile()">Generate Code</button>
 
             <div id="result"></div>
 
             <div class="divider"></div>
 
             <div class="form-group">
-                <label for="codeInput">Enter 6-Character Code</label>
-                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="10" style="text-transform: uppercase; text-align: center;">
+                <label for="codeInput">Enter 6-Digit Code</label>
+                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="6" style="text-transform: uppercase; text-align: center;">
             </div>
             <button id="downloadBtn" onclick="downloadFile()">Download File</button>
         </div>
@@ -178,7 +175,6 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // This is a more stable Key-Value store
         const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/';
 
         async function uploadFile() {
@@ -188,60 +184,51 @@
                 return;
             }
 
+            const file = fileInput.files[0];
+            if (file.size > 6 * 1024 * 1024) {
+                showResult('File too large for proxy. Max 6MB.', 'error');
+                return;
+            }
+
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loader"></span> Connecting to Cloud...';
+            uploadBtn.innerHTML = '<span class="loader"></span> Bypassing ISP...';
             hideResult();
 
             try {
-                // 1. Get the best server from GoFile
-                const serverRes = await fetch('https://api.gofile.io/getServer');
-                const serverData = await serverRes.json();
-                const server = serverData.data.server;
-
-                // 2. Upload file to that server
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-
-                uploadBtn.innerHTML = '<span class="loader"></span> Uploading...';
-                const uploadRes = await fetch(`https://${server}.gofile.io/uploadFile`, {
+                // Convert file to base64 to send to Netlify Function
+                const base64 = await toBase64(file);
+                
+                const response = await fetch('/api/upload', {
                     method: 'POST',
-                    body: formData
+                    body: JSON.stringify({
+                        file: base64.split(',')[1],
+                        filename: file.name
+                    })
                 });
 
-                const uploadData = await uploadRes.json();
-                if (uploadData.status === 'ok') {
-                    const downloadPage = uploadData.data.downloadPage;
-                    // GoFile ID is already quite short, but let's make it a 6-char code
-                    const shortCode = Math.random().toString(36).substr(2, 6).toUpperCase();
-
-                    // 3. Save mapping
-                    await fetch(`${KV_API}${shortCode}`, {
-                        method: 'POST',
-                        body: downloadPage
-                    });
-
+                if (response.ok) {
+                    const data = await response.json();
                     showResult(`
-                        ✅ Upload Successful!<br>
-                        Your Code is:<br>
-                        <span class="code-display">${shortCode}</span>
+                        ✅ Success!<br>
+                        Your Code:<br>
+                        <span class="code-display">${data.code}</span>
                     `, 'success');
                     fileInput.value = '';
                 } else {
-                    showResult('Cloud server busy. Try again.', 'error');
+                    showResult('Proxy error. Try again.', 'error');
                 }
             } catch (error) {
-                console.error(error);
-                showResult('Network Error. Please try turning off your VPN or using Mobile Data.', 'error');
+                showResult('Network Error. Is your internet connected?', 'error');
             } finally {
                 uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Generate Short Code';
+                uploadBtn.innerHTML = 'Generate Code';
             }
         }
 
         async function downloadFile() {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
-            if (!code) {
-                showResult('Please enter a code.', 'error');
+            if (code.length !== 6) {
+                showResult('Enter a 6-digit code.', 'error');
                 return;
             }
 
@@ -252,18 +239,25 @@
                 const response = await fetch(`${KV_API}${code}`);
                 if (response.ok) {
                     const url = await response.text();
-                    window.open(url, '_blank'); // Open GoFile download page
-                    showResult('Redirecting to download page...', 'success');
+                    window.open(url, '_blank');
+                    showResult('Redirecting...', 'success');
                 } else {
-                    showResult('Code not found or expired.', 'error');
+                    showResult('Code not found.', 'error');
                 }
             } catch (error) {
-                showResult('Error connecting to database.', 'error');
+                showResult('Network Error.', 'error');
             } finally {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = 'Download File';
             }
         }
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
 
         function showResult(html, type) {
             resultDiv.innerHTML = html;
