@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempShare - Ultimate Edition</title>
+    <title>TempShare v2.0 - Ultimate Fix</title>
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #1e293b;
+            --primary: #6366f1;
+            --bg: #0f172a; /* Darker background to distinguish version */
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --subtext: #94a3b8;
         }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -24,257 +24,184 @@
         }
         .container {
             width: 100%;
-            max-width: 450px;
+            max-width: 400px;
             padding: 20px;
         }
         .card {
             background: var(--card);
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             padding: 32px;
-            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
         h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
+            font-size: 28px;
             text-align: center;
-            background: linear-gradient(to right, #4f46e5, #9333ea);
+            margin-bottom: 8px;
+            background: linear-gradient(to right, #818cf8, #c084fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        p.subtitle {
-            text-align: center;
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
+        .version-tag {
             display: block;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 8px;
+            text-align: center;
+            font-size: 10px;
+            color: #4ade80;
+            margin-bottom: 24px;
+            font-weight: bold;
         }
-        input[type="text"], input[type="file"] {
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 14px; margin-bottom: 8px; color: var(--subtext); }
+        input {
             width: 100%;
             padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            color: white;
             box-sizing: border-box;
-            font-size: 16px;
         }
         button {
             width: 100%;
-            background-color: var(--primary);
+            background: var(--primary);
             color: white;
             border: none;
             padding: 14px;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 10px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: transform 0.1s;
         }
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-        button:disabled {
-            background-color: #94a3b8;
-            cursor: not-allowed;
-        }
-        .divider {
-            height: 1px;
-            background: #e2e8f0;
-            margin: 32px 0;
-            position: relative;
-        }
-        .divider::after {
-            content: "OR";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--card);
-            padding: 0 12px;
-            font-size: 12px;
-            color: #94a3b8;
-            font-weight: 600;
-        }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
         #result {
             margin-top: 20px;
-            padding: 16px;
-            border-radius: 8px;
-            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
             display: none;
+            text-align: center;
+            font-size: 14px;
         }
-        .success {
-            background-color: #f0fdf4;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-        }
-        .error {
-            background-color: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-        }
+        .success { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
         .code-display {
             font-family: monospace;
             font-size: 32px;
-            font-weight: bold;
             letter-spacing: 4px;
-            margin: 12px 0;
+            margin: 10px 0;
             display: block;
-            color: var(--primary);
-        }
-        .short-url {
-            font-size: 14px;
-            color: #4f46e5;
-            text-decoration: underline;
-            display: block;
-            margin-top: 8px;
+            color: white;
         }
         .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary);
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            width: 16px; height: 16px;
             animation: spin 1s linear infinite;
             display: inline-block;
-            vertical-align: middle;
             margin-right: 8px;
+            vertical-align: middle;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
             <h1>TempShare</h1>
-            <p class="subtitle">Ultimate Proxy Edition (Wi-Fi Fix)</p>
+            <span class="version-tag">VERSION 2.0 (ANTI-BLOCK)</span>
 
             <div class="form-group">
-                <label for="fileInput">Choose File (Max 4MB for Wi-Fi)</label>
+                <label>Select File (Max 4MB)</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Generate Code</button>
+            <button id="uploadBtn" onclick="uploadFile()">UPLOAD NOW</button>
 
             <div id="result"></div>
 
-            <div class="divider"></div>
+            <div style="margin: 25px 0; height: 1px; background: #334155;"></div>
 
             <div class="form-group">
-                <label for="codeInput">Enter 6-Digit Code</label>
-                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="6" style="text-transform: uppercase; text-align: center;">
+                <label>Enter 6-Digit Code</label>
+                <input type="text" id="codeInput" maxlength="6" placeholder="A1B2C3" style="text-transform: uppercase; text-align: center; font-family: monospace; font-size: 20px;">
             </div>
-            <button id="downloadBtn" onclick="downloadFile()">Download File</button>
+            <button id="downloadBtn" onclick="downloadFile()">DOWNLOAD</button>
         </div>
     </div>
 
     <script>
-        const resultDiv = document.getElementById('result');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
+        const res = document.getElementById('result');
+        const btn = document.getElementById('uploadBtn');
 
-        const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/';
+        function showMsg(html, type) {
+            res.innerHTML = html;
+            res.className = type;
+            res.style.display = 'block';
+        }
 
         async function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput.files.length === 0) {
-                showResult('Please select a file.', 'error');
-                return;
-            }
+            const input = document.getElementById('fileInput');
+            if (!input.files[0]) return showMsg('Select a file!', 'error');
+            
+            const file = input.files[0];
+            if (file.size > 4.5 * 1024 * 1024) return showMsg('File too large (Max 4MB)', 'error');
 
-            const file = fileInput.files[0];
-            // 4MB limit because Base64 encoding adds 33% overhead, and Netlify limit is 6MB.
-            if (file.size > 4 * 1024 * 1024) {
-                showResult('File too large for Wi-Fi bypass. Max 4MB.', 'error');
-                return;
-            }
-
-            uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loader"></span> Bypassing ISP...';
-            hideResult();
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loader"></span> BYPASSING ISP...';
+            res.style.display = 'none';
 
             try {
-                const base64 = await toBase64(file);
-                
+                const base64 = await new Promise((r, j) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => r(reader.result.split(',')[1]);
+                    reader.onerror = j;
+                });
+
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        file: base64.split(',')[1],
-                        filename: file.name
-                    })
+                    body: JSON.stringify({ file: base64, filename: file.name })
                 });
 
+                const data = await response.json();
                 if (response.ok) {
-                    const data = await response.json();
-                    showResult(`
-                        ✅ Success!<br>
-                        Code: <span class="code-display">${data.code}</span>
-                        <a href="${data.shortUrl}" target="_blank" class="short-url">Download Link</a>
+                    showMsg(`
+                        ✅ UPLOADED!<br>
+                        CODE: <span class="code-display">${data.code}</span>
+                        <a href="${data.shortUrl}" target="_blank" style="color: #818cf8;">Open Short Link</a>
                     `, 'success');
-                    fileInput.value = '';
+                    input.value = '';
                 } else {
-                    const txt = await response.text();
-                    showResult('Error: ' + txt, 'error');
+                    showMsg('SERVER ERROR: ' + (data.error || 'Unknown'), 'error');
                 }
-            } catch (error) {
-                showResult('Network Error. Please refresh and try again.', 'error');
+            } catch (e) {
+                showMsg('NETWORK ERROR: ' + e.message, 'error');
             } finally {
-                uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Generate Code';
+                btn.disabled = false;
+                btn.innerHTML = 'UPLOAD NOW';
             }
         }
 
         async function downloadFile() {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
-            if (code.length !== 6) {
-                showResult('Enter a 6-digit code.', 'error');
-                return;
-            }
-
-            downloadBtn.disabled = true;
-            downloadBtn.innerHTML = '<span class="loader"></span> Finding...';
-
+            if (code.length !== 6) return showMsg('Enter 6 chars!', 'error');
+            
+            const dBtn = document.getElementById('downloadBtn');
+            dBtn.disabled = true;
+            
             try {
-                const response = await fetch(`${KV_API}${code}`);
-                if (response.ok) {
-                    const url = await response.text();
-                    window.location.href = url;
+                const r = await fetch(`https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/${code}`);
+                if (r.ok) {
+                    window.location.href = await r.text();
                 } else {
-                    showResult('Code not found.', 'error');
+                    showMsg('Invalid Code!', 'error');
                 }
-            } catch (error) {
-                showResult('Database Error.', 'error');
+            } catch (e) {
+                showMsg('Database Error!', 'error');
             } finally {
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = 'Download File';
+                dBtn.disabled = false;
             }
-        }
-
-        const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-
-        function showResult(html, type) {
-            resultDiv.innerHTML = html;
-            resultDiv.className = type;
-            resultDiv.style.display = 'block';
-        }
-
-        function hideResult() {
-            resultDiv.style.display = 'none';
         }
     </script>
 </body>
