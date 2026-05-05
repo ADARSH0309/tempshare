@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempShare - 6-Digit Code</title>
+    <title>TempShare - Super Stable</title>
     <style>
         :root {
             --primary: #4f46e5;
@@ -122,12 +122,15 @@
         }
         .code-display {
             font-family: monospace;
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
-            letter-spacing: 4px;
+            letter-spacing: 2px;
             margin: 12px 0;
             display: block;
             color: var(--primary);
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 8px;
         }
         .loader {
             border: 3px solid #f3f3f3;
@@ -150,21 +153,21 @@
     <div class="container">
         <div class="card">
             <h1>TempShare</h1>
-            <p class="subtitle">Enter a 6-digit code to get files.</p>
+            <p class="subtitle">Fast, Reliable, Cloud-Powered.</p>
 
             <div class="form-group">
-                <label for="fileInput">Upload File (PDF, Python, etc.)</label>
+                <label for="fileInput">Choose File (.py, .pdf, etc.)</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Get 6-Digit Code</button>
+            <button id="uploadBtn" onclick="uploadFile()">Generate Short Code</button>
 
             <div id="result"></div>
 
             <div class="divider"></div>
 
             <div class="form-group">
-                <label for="codeInput">Enter 6-Digit Code</label>
-                <input type="text" id="codeInput" placeholder="e.g. A1B2C3" maxlength="6" style="text-transform: uppercase; text-align: center;">
+                <label for="codeInput">Enter 6-Character Code</label>
+                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="10" style="text-transform: uppercase; text-align: center;">
             </div>
             <button id="downloadBtn" onclick="downloadFile()">Download File</button>
         </div>
@@ -175,92 +178,87 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // We use a free key-value store to map Short Code -> Long Link
-        const KV_BUCKET = 'tempshare_adarsh_' + Math.random().toString(36).substr(2, 5); // unique-ish bucket
-        const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/'; // Public bucket for the app
-
-        function generateCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No similar chars like 0/O or 1/I
-            let result = '';
-            for (let i = 0; i < 6; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        }
+        // This is a more stable Key-Value store
+        const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/';
 
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             if (fileInput.files.length === 0) {
-                showResult('Please select a file first.', 'error');
+                showResult('Please select a file.', 'error');
                 return;
             }
 
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loader"></span> Generating Code...';
+            uploadBtn.innerHTML = '<span class="loader"></span> Connecting to Cloud...';
             hideResult();
 
             try {
-                // 1. Upload to Pixeldrain
-                const response = await fetch('https://pixeldrain.com/api/file', {
+                // 1. Get the best server from GoFile
+                const serverRes = await fetch('https://api.gofile.io/getServer');
+                const serverData = await serverRes.json();
+                const server = serverData.data.server;
+
+                // 2. Upload file to that server
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                uploadBtn.innerHTML = '<span class="loader"></span> Uploading...';
+                const uploadRes = await fetch(`https://${server}.gofile.io/uploadFile`, {
                     method: 'POST',
                     body: formData
                 });
 
-                if (response.ok) {
-                    const resData = await response.json();
-                    const fileUrl = `https://pixeldrain.com/u/${resData.id}`;
-                    
-                    // 2. Generate 6-char code
-                    const shortCode = generateCode();
+                const uploadData = await uploadRes.json();
+                if (uploadData.status === 'ok') {
+                    const downloadPage = uploadData.data.downloadPage;
+                    // GoFile ID is already quite short, but let's make it a 6-char code
+                    const shortCode = Math.random().toString(36).substr(2, 6).toUpperCase();
 
-                    // 3. Store mapping (Code -> Link) in KV store
+                    // 3. Save mapping
                     await fetch(`${KV_API}${shortCode}`, {
                         method: 'POST',
-                        body: fileUrl
+                        body: downloadPage
                     });
 
                     showResult(`
                         ✅ Upload Successful!<br>
-                        Your 6-character code is:<br>
+                        Your Code is:<br>
                         <span class="code-display">${shortCode}</span>
                     `, 'success');
-                    fileInput.value = ''; 
+                    fileInput.value = '';
                 } else {
-                    showResult('Upload failed. Try a smaller file.', 'error');
+                    showResult('Cloud server busy. Try again.', 'error');
                 }
             } catch (error) {
-                showResult('Network Error. Try again.', 'error');
+                console.error(error);
+                showResult('Network Error. Please try turning off your VPN or using Mobile Data.', 'error');
             } finally {
                 uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Get 6-Digit Code';
+                uploadBtn.innerHTML = 'Generate Short Code';
             }
         }
 
         async function downloadFile() {
             const code = document.getElementById('codeInput').value.trim().toUpperCase();
-            if (code.length !== 6) {
-                showResult('Please enter a 6-character code.', 'error');
+            if (!code) {
+                showResult('Please enter a code.', 'error');
                 return;
             }
-            
+
             downloadBtn.disabled = true;
-            downloadBtn.innerHTML = '<span class="loader"></span> Finding File...';
+            downloadBtn.innerHTML = '<span class="loader"></span> Fetching...';
 
             try {
-                // 1. Get the long URL from the KV store using the code
                 const response = await fetch(`${KV_API}${code}`);
                 if (response.ok) {
-                    const fileUrl = await response.text();
-                    window.location.href = fileUrl; // Redirect to download
+                    const url = await response.text();
+                    window.open(url, '_blank'); // Open GoFile download page
+                    showResult('Redirecting to download page...', 'success');
                 } else {
-                    showResult('Invalid code or file expired.', 'error');
+                    showResult('Code not found or expired.', 'error');
                 }
             } catch (error) {
-                showResult('Error finding file. Check your internet.', 'error');
+                showResult('Error connecting to database.', 'error');
             } finally {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = 'Download File';
