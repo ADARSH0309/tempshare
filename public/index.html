@@ -157,10 +157,10 @@
     <div class="container">
         <div class="card">
             <h1>TempShare</h1>
-            <p class="subtitle">Ultimate Edition (Bypasses All ISP Blocks)</p>
+            <p class="subtitle">Ultimate Proxy Edition (Wi-Fi Fix)</p>
 
             <div class="form-group">
-                <label for="fileInput">Choose File (Max 6MB)</label>
+                <label for="fileInput">Choose File (Max 4MB for Wi-Fi)</label>
                 <input type="file" id="fileInput">
             </div>
             <button id="uploadBtn" onclick="uploadFile()">Generate Code</button>
@@ -192,8 +192,9 @@
             }
 
             const file = fileInput.files[0];
-            if (file.size > 6 * 1024 * 1024) {
-                showResult('File too large. Max 6MB allowed.', 'error');
+            // 4MB limit because Base64 encoding adds 33% overhead, and Netlify limit is 6MB.
+            if (file.size > 4 * 1024 * 1024) {
+                showResult('File too large for Wi-Fi bypass. Max 4MB.', 'error');
                 return;
             }
 
@@ -217,17 +218,16 @@
                     const data = await response.json();
                     showResult(`
                         ✅ Success!<br>
-                        Your Code:<br>
-                        <span class="code-display">${data.code}</span>
-                        <a href="${data.shortUrl}" target="_blank" class="short-url">Or use this short link: ${data.shortUrl}</a>
+                        Code: <span class="code-display">${data.code}</span>
+                        <a href="${data.shortUrl}" target="_blank" class="short-url">Download Link</a>
                     `, 'success');
                     fileInput.value = '';
                 } else {
                     const txt = await response.text();
-                    showResult('Upload failed. Try a smaller file or refresh.', 'error');
+                    showResult('Error: ' + txt, 'error');
                 }
             } catch (error) {
-                showResult('Network Error. Is your internet connected?', 'error');
+                showResult('Network Error. Please refresh and try again.', 'error');
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerHTML = 'Generate Code';
@@ -249,12 +249,11 @@
                 if (response.ok) {
                     const url = await response.text();
                     window.location.href = url;
-                    showResult('Redirecting...', 'success');
                 } else {
                     showResult('Code not found.', 'error');
                 }
             } catch (error) {
-                showResult('Network Error.', 'error');
+                showResult('Database Error.', 'error');
             } finally {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = 'Download File';
