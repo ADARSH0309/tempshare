@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TempShare - Fast File Transfer</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            padding: 20px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-align: center;
+            background: linear-gradient(to right, #4f46e5, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+        .divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 32px 0;
+            position: relative;
+        }
+        .divider::after {
+            content: "OR";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card);
+            padding: 0 12px;
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .success {
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .code-display {
+            font-family: monospace;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            margin: 12px 0;
+            display: block;
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>TempShare</h1>
+            <p class="subtitle">Quickly share files. Auto-expires in 24h.</p>
+
+            <!-- Upload Section -->
+            <div class="form-group">
+                <label for="fileInput">Choose a file (max 50MB)</label>
+                <input type="file" id="fileInput">
+            </div>
+            <button id="uploadBtn" onclick="uploadFile()">Upload File</button>
+
+            <div id="result"></div>
+
+            <div class="divider"></div>
+
+            <!-- Download Section -->
+            <div class="form-group">
+                <label for="codeInput">Enter 6-character code</label>
+                <input type="text" id="codeInput" placeholder="e.g. A1B2C3" maxlength="6" style="text-transform: uppercase;">
+            </div>
+            <button onclick="downloadFile()">Download File</button>
+        </div>
+    </div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) {
+                showResult('Please select a file first.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="loader"></span> Uploading...';
+            hideResult();
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(`
+                        Upload successful!<br>
+                        Your access code is:<br>
+                        <span class="code-display">${data.code}</span>
+                        Expires in 24 hours.
+                    `, 'success');
+                    fileInput.value = ''; // clear input
+                } else {
+                    const err = await response.text();
+                    showResult('Upload failed: ' + err, 'error');
+                }
+            } catch (error) {
+                showResult('Network error: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = 'Upload File';
+            }
+        }
+
+        function downloadFile() {
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showResult('Please enter a valid 6-character code.', 'error');
+                return;
+            }
+            
+            // Just redirect to the download endpoint
+            window.location.href = `/download/${code}`;
+        }
+
+        function showResult(html, type) {
+            resultDiv.innerHTML = html;
+            resultDiv.className = type;
+            resultDiv.style.display = 'block';
+        }
+
+        function hideResult() {
+            resultDiv.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
