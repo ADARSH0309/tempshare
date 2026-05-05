@@ -2,47 +2,48 @@ const axios = require('axios');
 const FormData = require('form-data');
 
 exports.handler = async (event) => {
-  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    // 1. Get GoFile Server
-    const serverRes = await axios.get('https://api.gofile.io/getServer');
-    const server = serverRes.data.data.server;
-
-    // 2. Prepare the file (received as base64 from the frontend)
     const body = JSON.parse(event.body);
     const fileBuffer = Buffer.from(body.file, 'base64');
     
     const form = new FormData();
     form.append('file', fileBuffer, { filename: body.filename });
 
-    // 3. Upload to GoFile from Netlify's server
-    const uploadRes = await axios.post(`https://${server}.gofile.io/uploadFile`, form, {
+    // Upload to Pixeldrain from Netlify's server (Bypasses local ISP)
+    const uploadRes = await axios.post('https://pixeldrain.com/api/file', form, {
       headers: form.getHeaders()
     });
 
-    if (uploadRes.data.status === 'ok') {
-      const downloadPage = uploadRes.data.data.downloadPage;
-      const shortCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+    if (uploadRes.status === 201 || uploadRes.status === 200) {
+      const fileId = uploadRes.data.id;
+      const downloadUrl = `https://pixeldrain.com/u/${fileId}`;
+      
+      // Generate 6-char code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let shortCode = '';
+      for (let i = 0; i < 6; i++) {
+        shortCode += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
 
-      // 4. Save to KV database
-      await axios.post(`https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/${shortCode}`, downloadPage);
+      // Save mapping in KV store
+      await axios.post(`https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/${shortCode}`, downloadUrl);
 
       return {
         statusCode: 200,
         body: JSON.stringify({ code: shortCode })
       };
     } else {
-      throw new Error('GoFile upload failed');
+      return { statusCode: 500, body: 'Cloud Upload Failed' };
     }
   } catch (error) {
-    console.error(error);
+    console.error('Function Error:', error.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal Server Error' })
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
