@@ -129,6 +129,13 @@
             display: block;
             color: var(--primary);
         }
+        .short-url {
+            font-size: 14px;
+            color: #4f46e5;
+            text-decoration: underline;
+            display: block;
+            margin-top: 8px;
+        }
         .loader {
             border: 3px solid #f3f3f3;
             border-top: 3px solid var(--primary);
@@ -150,13 +157,13 @@
     <div class="container">
         <div class="card">
             <h1>TempShare</h1>
-            <p class="subtitle">Ultimate Edition (Works with Wi-Fi)</p>
+            <p class="subtitle">Ultimate Edition (Bypasses All ISP Blocks)</p>
 
             <div class="form-group">
-                <label for="fileInput">Select PDF or Python File (Max 6MB)</label>
+                <label for="fileInput">Choose File (Max 6MB)</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Get 6-Digit Code</button>
+            <button id="uploadBtn" onclick="uploadFile()">Generate Code</button>
 
             <div id="result"></div>
 
@@ -164,7 +171,7 @@
 
             <div class="form-group">
                 <label for="codeInput">Enter 6-Digit Code</label>
-                <input type="text" id="codeInput" placeholder="e.g. A1B2C3" maxlength="6" style="text-transform: uppercase; text-align: center;">
+                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="6" style="text-transform: uppercase; text-align: center;">
             </div>
             <button id="downloadBtn" onclick="downloadFile()">Download File</button>
         </div>
@@ -186,7 +193,7 @@
 
             const file = fileInput.files[0];
             if (file.size > 6 * 1024 * 1024) {
-                showResult('File too large. Max 6MB allowed for Wi-Fi bypass.', 'error');
+                showResult('File too large. Max 6MB allowed.', 'error');
                 return;
             }
 
@@ -195,8 +202,6 @@
             hideResult();
 
             try {
-                // We send the file to our own Netlify Backend (/api/upload)
-                // This bypasses ALL ISP blocks because it stays on netlify.com
                 const base64 = await toBase64(file);
                 
                 const response = await fetch('/api/upload', {
@@ -214,17 +219,18 @@
                         ✅ Success!<br>
                         Your Code:<br>
                         <span class="code-display">${data.code}</span>
+                        <a href="${data.shortUrl}" target="_blank" class="short-url">Or use this short link: ${data.shortUrl}</a>
                     `, 'success');
                     fileInput.value = '';
                 } else {
                     const txt = await response.text();
-                    showResult('Upload failed: ' + txt, 'error');
+                    showResult('Upload failed. Try a smaller file or refresh.', 'error');
                 }
             } catch (error) {
-                showResult('Network Error. Check your Wi-Fi.', 'error');
+                showResult('Network Error. Is your internet connected?', 'error');
             } finally {
                 uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Get 6-Digit Code';
+                uploadBtn.innerHTML = 'Generate Code';
             }
         }
 
@@ -242,13 +248,13 @@
                 const response = await fetch(`${KV_API}${code}`);
                 if (response.ok) {
                     const url = await response.text();
-                    window.open(url, '_blank');
+                    window.location.href = url;
                     showResult('Redirecting...', 'success');
                 } else {
-                    showResult('Invalid code.', 'error');
+                    showResult('Code not found.', 'error');
                 }
             } catch (error) {
-                showResult('Error connecting to database.', 'error');
+                showResult('Network Error.', 'error');
             } finally {
                 downloadBtn.disabled = false;
                 downloadBtn.innerHTML = 'Download File';
