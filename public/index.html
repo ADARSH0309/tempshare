@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempShare - Ultimate Edition</title>
+    <title>TempShare - Smart Edition</title>
     <style>
         :root {
             --primary: #4f46e5;
@@ -41,7 +41,8 @@
             text-align: center;
             background: linear-gradient(to right, #4f46e5, #9333ea);
             -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-fill-color: transparent;
+            -webkit-background-clip: text;
         }
         p.subtitle {
             text-align: center;
@@ -85,24 +86,6 @@
             background-color: #94a3b8;
             cursor: not-allowed;
         }
-        .divider {
-            height: 1px;
-            background: #e2e8f0;
-            margin: 32px 0;
-            position: relative;
-        }
-        .divider::after {
-            content: "OR";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--card);
-            padding: 0 12px;
-            font-size: 12px;
-            color: #94a3b8;
-            font-weight: 600;
-        }
         #result {
             margin-top: 20px;
             padding: 16px;
@@ -122,12 +105,12 @@
         }
         .code-display {
             font-family: monospace;
-            font-size: 32px;
+            font-size: 24px;
             font-weight: bold;
-            letter-spacing: 4px;
             margin: 12px 0;
             display: block;
             color: var(--primary);
+            word-break: break-all;
         }
         .loader {
             border: 3px solid #f3f3f3;
@@ -149,33 +132,26 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>TempShare</h1>
-            <p class="subtitle">Ultimate Proxy Edition (Bypasses All ISP Blocks)</p>
+            <h1 style="background: linear-gradient(to right, #4f46e5, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">TempShare Smart</h1>
+            <p class="subtitle">Bypasses ISP blocks using Smart-Routing.</p>
 
             <div class="form-group">
-                <label for="fileInput">Choose File (Max 6MB)</label>
+                <label for="fileInput">Choose PDF or .py File</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Generate Code</button>
+            <button id="uploadBtn" onclick="uploadFile()">Upload Now</button>
 
             <div id="result"></div>
 
-            <div class="divider"></div>
-
-            <div class="form-group">
-                <label for="codeInput">Enter 6-Digit Code</label>
-                <input type="text" id="codeInput" placeholder="e.g. RJ9K2L" maxlength="6" style="text-transform: uppercase; text-align: center;">
+            <div style="margin-top: 24px; font-size: 11px; color: #94a3b8; text-align: center;">
+                If it fails, it will automatically try another server.
             </div>
-            <button id="downloadBtn" onclick="downloadFile()">Download File</button>
         </div>
     </div>
 
     <script>
         const resultDiv = document.getElementById('result');
         const uploadBtn = document.getElementById('uploadBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-
-        const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/';
 
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
@@ -184,80 +160,56 @@
                 return;
             }
 
-            const file = fileInput.files[0];
-            if (file.size > 6 * 1024 * 1024) {
-                showResult('File too large for proxy. Max 6MB.', 'error');
-                return;
-            }
-
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loader"></span> Bypassing ISP...';
             hideResult();
 
-            try {
-                // Convert file to base64 to send to Netlify Function
-                const base64 = await toBase64(file);
-                
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        file: base64.split(',')[1],
-                        filename: file.name
-                    })
-                });
+            // List of servers to try in order
+            const servers = [
+                { name: 'Pixeldrain', url: 'https://pixeldrain.com/api/file' },
+                { name: 'TmpFiles', url: 'https://tmpfiles.org/api/v1/upload' },
+                { name: 'GoFile', url: 'https://api.gofile.io/getServer' }
+            ];
 
-                if (response.ok) {
-                    const data = await response.json();
-                    showResult(`
-                        ✅ Success!<br>
-                        Your Code:<br>
-                        <span class="code-display">${data.code}</span>
-                    `, 'success');
-                    fileInput.value = '';
-                } else {
-                    showResult('Proxy error. Try again.', 'error');
+            for (let i = 0; i < servers.length; i++) {
+                const server = servers[i];
+                uploadBtn.innerHTML = `<span class="loader"></span> Trying ${server.name}...`;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+
+                    // We use a different proxy for each try
+                    const proxy = i === 0 ? 'https://api.allorigins.win/raw?url=' : 'https://corsproxy.io/?';
+                    
+                    const response = await fetch(proxy + encodeURIComponent(server.url), {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        let link = '';
+                        
+                        if (server.name === 'Pixeldrain') link = `https://pixeldrain.com/u/${data.id}`;
+                        if (server.name === 'TmpFiles') link = data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+                        
+                        showResult(`
+                            ✅ Success!<br>
+                            Link for your friend:<br>
+                            <span class="code-display">${link}</span>
+                        `, 'success');
+                        fileInput.value = '';
+                        return; // Stop after first success
+                    }
+                } catch (e) {
+                    console.log(`${server.name} failed, trying next...`);
                 }
-            } catch (error) {
-                showResult('Network Error. Is your internet connected?', 'error');
-            } finally {
-                uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Generate Code';
             }
+
+            showResult('All servers blocked by your Wi-Fi. Try using your Mobile Hotspot.', 'error');
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = 'Upload Now';
         }
-
-        async function downloadFile() {
-            const code = document.getElementById('codeInput').value.trim().toUpperCase();
-            if (code.length !== 6) {
-                showResult('Enter a 6-digit code.', 'error');
-                return;
-            }
-
-            downloadBtn.disabled = true;
-            downloadBtn.innerHTML = '<span class="loader"></span> Fetching...';
-
-            try {
-                const response = await fetch(`${KV_API}${code}`);
-                if (response.ok) {
-                    const url = await response.text();
-                    window.open(url, '_blank');
-                    showResult('Redirecting...', 'success');
-                } else {
-                    showResult('Code not found.', 'error');
-                }
-            } catch (error) {
-                showResult('Network Error.', 'error');
-            } finally {
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = 'Download File';
-            }
-        }
-
-        const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
 
         function showResult(html, type) {
             resultDiv.innerHTML = html;
