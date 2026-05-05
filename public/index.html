@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TempShare Cloud - Universal Transfer</title>
+    <title>TempShare - 6-Digit Code</title>
     <style>
         :root {
             --primary: #4f46e5;
@@ -58,7 +58,7 @@
             font-weight: 500;
             margin-bottom: 8px;
         }
-        input[type="file"] {
+        input[type="text"], input[type="file"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #e2e8f0;
@@ -85,13 +85,30 @@
             background-color: #94a3b8;
             cursor: not-allowed;
         }
+        .divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 32px 0;
+            position: relative;
+        }
+        .divider::after {
+            content: "OR";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card);
+            padding: 0 12px;
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
         #result {
             margin-top: 20px;
             padding: 16px;
             border-radius: 8px;
             text-align: center;
             display: none;
-            word-break: break-all;
         }
         .success {
             background-color: #f0fdf4;
@@ -105,15 +122,12 @@
         }
         .code-display {
             font-family: monospace;
-            font-size: 14px;
+            font-size: 32px;
             font-weight: bold;
+            letter-spacing: 4px;
             margin: 12px 0;
             display: block;
             color: var(--primary);
-            background: #eeeefd;
-            padding: 10px;
-            border-radius: 4px;
-            user-select: all;
         }
         .loader {
             border: 3px solid #f3f3f3;
@@ -135,44 +149,62 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>TempShare Cloud</h1>
-            <p class="subtitle">Supports PDFs, Python files, and more!</p>
+            <h1>TempShare</h1>
+            <p class="subtitle">Enter a 6-digit code to get files.</p>
 
             <div class="form-group">
-                <label for="fileInput">Select File (.py, .pdf, .txt, etc.)</label>
+                <label for="fileInput">Upload File (PDF, Python, etc.)</label>
                 <input type="file" id="fileInput">
             </div>
-            <button id="uploadBtn" onclick="uploadFile()">Upload File</button>
+            <button id="uploadBtn" onclick="uploadFile()">Get 6-Digit Code</button>
 
             <div id="result"></div>
+
+            <div class="divider"></div>
+
+            <div class="form-group">
+                <label for="codeInput">Enter 6-Digit Code</label>
+                <input type="text" id="codeInput" placeholder="e.g. A1B2C3" maxlength="6" style="text-transform: uppercase; text-align: center;">
+            </div>
+            <button id="downloadBtn" onclick="downloadFile()">Download File</button>
         </div>
     </div>
 
     <script>
         const resultDiv = document.getElementById('result');
         const uploadBtn = document.getElementById('uploadBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // We use a free key-value store to map Short Code -> Long Link
+        const KV_BUCKET = 'tempshare_adarsh_' + Math.random().toString(36).substr(2, 5); // unique-ish bucket
+        const KV_API = 'https://kvdb.io/K99U4v7Y8vXN6t8pP6r1G1/'; // Public bucket for the app
+
+        function generateCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No similar chars like 0/O or 1/I
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
 
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             if (fileInput.files.length === 0) {
-                showResult('Please select a file.', 'error');
+                showResult('Please select a file first.', 'error');
                 return;
             }
 
             const file = fileInput.files[0];
             const formData = new FormData();
-            
-            // SECURITY BYPASS: We rename the blob internally to ensure the cloud doesn't block it
-            // but we keep the original name for the user.
-            const blob = new Blob([file], { type: 'application/octet-stream' });
-            formData.append('file', blob, file.name);
+            formData.append('file', file);
 
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="loader"></span> Uploading...';
+            uploadBtn.innerHTML = '<span class="loader"></span> Generating Code...';
             hideResult();
 
             try {
-                // Switching to Pixeldrain - High speed and allows code files
+                // 1. Upload to Pixeldrain
                 const response = await fetch('https://pixeldrain.com/api/file', {
                     method: 'POST',
                     body: formData
@@ -180,26 +212,58 @@
 
                 if (response.ok) {
                     const resData = await response.json();
-                    // Pixeldrain returns an ID. The download link is pixeldrain.com/u/ID
-                    const fileId = resData.id;
-                    const downloadUrl = `https://pixeldrain.com/u/${fileId}`;
+                    const fileUrl = `https://pixeldrain.com/u/${resData.id}`;
                     
+                    // 2. Generate 6-char code
+                    const shortCode = generateCode();
+
+                    // 3. Store mapping (Code -> Link) in KV store
+                    await fetch(`${KV_API}${shortCode}`, {
+                        method: 'POST',
+                        body: fileUrl
+                    });
+
                     showResult(`
                         ✅ Upload Successful!<br>
-                        Link for .py file:<br>
-                        <span class="code-display">${downloadUrl}</span>
-                        (Send this link to your friend)
+                        Your 6-character code is:<br>
+                        <span class="code-display">${shortCode}</span>
                     `, 'success');
                     fileInput.value = ''; 
                 } else {
-                    showResult('Upload blocked by server. Try a smaller file.', 'error');
+                    showResult('Upload failed. Try a smaller file.', 'error');
                 }
             } catch (error) {
-                console.error('Upload Error:', error);
-                showResult('Network Error. Please try again.', 'error');
+                showResult('Network Error. Try again.', 'error');
             } finally {
                 uploadBtn.disabled = false;
-                uploadBtn.innerHTML = 'Upload File';
+                uploadBtn.innerHTML = 'Get 6-Digit Code';
+            }
+        }
+
+        async function downloadFile() {
+            const code = document.getElementById('codeInput').value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showResult('Please enter a 6-character code.', 'error');
+                return;
+            }
+            
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<span class="loader"></span> Finding File...';
+
+            try {
+                // 1. Get the long URL from the KV store using the code
+                const response = await fetch(`${KV_API}${code}`);
+                if (response.ok) {
+                    const fileUrl = await response.text();
+                    window.location.href = fileUrl; // Redirect to download
+                } else {
+                    showResult('Invalid code or file expired.', 'error');
+                }
+            } catch (error) {
+                showResult('Error finding file. Check your internet.', 'error');
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = 'Download File';
             }
         }
 
